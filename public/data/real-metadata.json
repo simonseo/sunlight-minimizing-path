@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-07-27T21:46:25+00:00",
+  "study_area": "Santa Monica, California",
+  "source_files": [
+    {
+      "path": "data/raw/osm-overpass.json",
+      "sha256": "e4c4f4697caa9ac2b97470794d4fb799cac3ca4ce7283c38a181214825bf4e82"
+    },
+    {
+      "path": "data/raw/trees.geojson",
+      "sha256": "a7d5a72904755591d4743d93b0404c20a2a13c97ed68c12e812d5dbdb621a36f"
+    },
+    {
+      "path": "data/raw/lidar-ept.json",
+      "sha256": "191c6f88cb080fae59863aeca00f9da6805e8547ba76c5e43eb8833d0ffc7bbb"
+    }
+  ],
+  "graph": {
+    "nodes": 57531,
+    "edges": 67725
+  },
+  "limitations": [
+    "OSM street-centerline edges are a pedestrian-network proxy until sidewalk geometry is separately validated.",
+    "Tree cover is derived from the city public-tree inventory canopy attributes.",
+    "LiDAR obstruction expresses DSM-minus-DEM height and may include vegetation; tree inventory reduces, but does not eliminate, that overlap."
+  ],
+  "lidar": {
+    "dem": "ground-dem.tif",
+    "dsm": "surface-dsm.tif",
+    "resolution_m": 2,
+    "edges_with_obstruction": 37277
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "study_area": "Santa Monica, California",
+  "sources": [
+    {
+      "id": "usgs-3dep-la-county-b23-ept",
+      "purpose": "Building and canopy height baseline",
+      "url": "https://usgs-lidar-public.s3.amazonaws.com/CA_LosAngeles_1_B23/ept.json",
+      "license_note": "USGS public EPT metadata; process only the Santa Monica crop.",
+      "required_for_citywide_claims": true
+    },
+    {
+      "id": "santa-monica-trees-arcgis",
+      "purpose": "Public-tree location and attributes",
+      "url": "https://gis.santamonica.gov/server/rest/services/Trees/FeatureServer/0/query",
+      "license_note": "City Feature Service; snapshot query results and preserve ODC-BY attribution.",
+      "required_for_citywide_claims": true
+    },
+    {
+      "id": "openstreetmap-overpass-pedestrian-network",
+      "purpose": "Walkable paths and crossings",
+      "url": "https://overpass-api.de/api/interpreter",
+      "license_note": "Open Database License; provide attribution.",
+      "required_for_citywide_claims": true
+    },
+    {
+      "id": "open-meteo-scenario-snapshot",
+      "purpose": "Research weather scenario inputs",
+      "url": "https://open-meteo.com/en/docs",
+      "license_note": "Cache response metadata with each scenario.",
+      "required_for_citywide_claims": false
+    }
+  ]
+}

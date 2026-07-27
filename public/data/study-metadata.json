@@ -1,0 +1,7 @@
+{
+  "artifact_version": "study-mesh-v1",
+  "generated_at": "2026-07-27T20:55:58.577494+00:00",
+  "coverage": "Central Santa Monica study mesh; not citywide ground truth",
+  "shade_method": "Deterministic research proxy using time, corridor canopy, and orientation features",
+  "next_required_input": "LiDAR/tree/OSM normalized snapshots"
+}

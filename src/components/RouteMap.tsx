@@ -25,6 +25,39 @@ function shadowCoordinate(coordinate: Coordinate, heightMeters: number, sunPosit
   return [coordinate[0] + (Math.sin(radians) * distance) / 92000, coordinate[1] + (Math.cos(radians) * distance) / 111000] as Coordinate;
 }
 
+function closedRing(ring: Coordinate[]) {
+  if (ring.length === 0) return ring;
+  const first = ring[0];
+  const last = ring.at(-1);
+  return last?.[0] === first[0] && last?.[1] === first[1] ? ring : [...ring, first];
+}
+
+function canopyRing(center: Coordinate, radiusMeters: number) {
+  const latitudeMeters = 111_000;
+  const longitudeMeters = latitudeMeters * Math.cos((center[1] * Math.PI) / 180);
+  const radius = Math.max(2, Math.min(16, radiusMeters));
+  const ring = Array.from({ length: 14 }, (_, index) => {
+    const angle = (index / 12) * Math.PI * 2;
+    return [center[0] + (Math.sin(angle) * radius) / longitudeMeters, center[1] + (Math.cos(angle) * radius) / latitudeMeters] as Coordinate;
+  });
+  return closedRing(ring);
+}
+
+function buildingShadowGeometry(ring: Coordinate[], heightMeters: number, sunPosition: SolarPosition) {
+  const footprint = closedRing(ring);
+  const projected = closedRing(footprint.map((coordinate) => shadowCoordinate(coordinate, heightMeters, sunPosition)));
+  const sweptEdges = footprint.slice(0, -1).map((coordinate, index) => {
+    const next = footprint[index + 1];
+    const projectedCoordinate = projected[index];
+    const projectedNext = projected[index + 1];
+    return [coordinate, next, projectedNext, projectedCoordinate, coordinate];
+  });
+  return {
+    type: 'MultiPolygon' as const,
+    coordinates: [[projected], ...sweptEdges.map((edge) => [edge])],
+  };
+}
+
 function lineFeature(nodeIds: string[], graph: StudyGraph) {
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
   return {
@@ -82,19 +115,19 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
       features: eligibleBuildings.map((building) => ({
         type: 'Feature' as const,
         properties: {},
-        geometry: { type: 'Polygon' as const, coordinates: [building.ring.map((coordinate) => shadowCoordinate(coordinate, building.height_m, sunPosition))] },
+        geometry: buildingShadowGeometry(building.ring, building.height_m, sunPosition),
       })),
     });
     footprintSource?.setData({
       type: 'FeatureCollection',
-      features: eligibleBuildings.map((building) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Polygon' as const, coordinates: [building.ring] } })),
+      features: eligibleBuildings.map((building) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Polygon' as const, coordinates: [closedRing(building.ring)] } })),
     });
     treeSource?.setData({
       type: 'FeatureCollection',
-      features: showShadows && environment ? environment.trees.filter((_, index) => index % 3 === 0).map((tree) => ({
+      features: showShadows && environment ? environment.trees.filter((_, index) => index % 2 === 0).map((tree) => ({
         type: 'Feature' as const,
-        properties: { radius: Math.max(4, Math.min(28, tree.crown_radius_m * 1.4)) },
-        geometry: { type: 'Point' as const, coordinates: shadowCoordinate(tree.coordinate, tree.height_m, sunPosition) },
+        properties: {},
+        geometry: { type: 'Polygon' as const, coordinates: [canopyRing(shadowCoordinate(tree.coordinate, tree.height_m, sunPosition), tree.crown_radius_m)] },
       })) : [],
     });
 
@@ -131,9 +164,9 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
         paint: { 'circle-radius': 7, 'circle-color': ['get', 'color'], 'circle-opacity': 0.32, 'circle-blur': 0.18 },
       });
       instance.addSource('building-shadows', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      instance.addLayer({ id: 'building-shadows-layer', type: 'fill', source: 'building-shadows', paint: { 'fill-color': '#263d5a', 'fill-opacity': 0.16 } });
+      instance.addLayer({ id: 'building-shadows-layer', type: 'fill', source: 'building-shadows', paint: { 'fill-color': '#263d5a', 'fill-opacity': 0.13 } });
       instance.addSource('tree-shadows', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      instance.addLayer({ id: 'tree-shadows-layer', type: 'circle', source: 'tree-shadows', paint: { 'circle-color': '#426b58', 'circle-opacity': 0.16, 'circle-radius': ['get', 'radius'], 'circle-blur': 0.28 } });
+      instance.addLayer({ id: 'tree-shadows-layer', type: 'fill', source: 'tree-shadows', paint: { 'fill-color': '#426b58', 'fill-opacity': 0.2 } });
       instance.addSource('building-footprints', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       instance.addLayer({ id: 'building-footprints-layer', type: 'line', source: 'building-footprints', paint: { 'line-color': '#263d5a', 'line-opacity': 0.38, 'line-width': 1 } });
       instance.addSource('route-lines', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });

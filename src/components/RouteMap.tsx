@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
+import type { EnvironmentalFeatures } from '../data/environment';
 import type { Coordinate, Place, RouteResult, StudyGraph, WeatherScenario } from '../data/types';
 import { edgeExposure } from '../lib/exposure';
 
@@ -12,6 +13,24 @@ interface RouteMapProps {
   destination: Place;
   time: string;
   scenario: WeatherScenario;
+  environment: EnvironmentalFeatures | null;
+  showShadows: boolean;
+}
+
+function solarAltitude(time: string) {
+  const [hours, minutes] = time.split(':').map(Number);
+  const dayMinute = hours * 60 + minutes;
+  const intensity = Math.max(0.12, Math.sin(((dayMinute - 420) / 750) * Math.PI));
+  return 8 + intensity * 62;
+}
+
+function shadowCoordinate(coordinate: Coordinate, heightMeters: number, time: string) {
+  const [hours, minutes] = time.split(':').map(Number);
+  const progress = Math.min(1, Math.max(0, (hours * 60 + minutes - 420) / 750));
+  const azimuth = 90 + progress * 180 + 180;
+  const distance = Math.min(130, heightMeters / Math.tan((solarAltitude(time) * Math.PI) / 180));
+  const radians = (azimuth * Math.PI) / 180;
+  return [coordinate[0] + (Math.sin(radians) * distance) / 92000, coordinate[1] + (Math.cos(radians) * distance) / 111000] as Coordinate;
 }
 
 function lineFeature(nodeIds: string[], graph: StudyGraph) {
@@ -26,7 +45,7 @@ function lineFeature(nodeIds: string[], graph: StudyGraph) {
   };
 }
 
-export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destination, time, scenario }: RouteMapProps) {
+export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destination, time, scenario, environment, showShadows }: RouteMapProps) {
   const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -62,12 +81,37 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
       ],
     });
 
+    const buildingSource = instance.getSource('building-shadows') as mapboxgl.GeoJSONSource | undefined;
+    const treeSource = instance.getSource('tree-shadows') as mapboxgl.GeoJSONSource | undefined;
+    const footprintSource = instance.getSource('building-footprints') as mapboxgl.GeoJSONSource | undefined;
+    const eligibleBuildings = showShadows && environment ? environment.buildings.filter((building) => building.height_m >= 5).slice(0, 12000) : [];
+    buildingSource?.setData({
+      type: 'FeatureCollection',
+      features: eligibleBuildings.map((building) => ({
+        type: 'Feature' as const,
+        properties: {},
+        geometry: { type: 'Polygon' as const, coordinates: [building.ring.map((coordinate) => shadowCoordinate(coordinate, building.height_m, time))] },
+      })),
+    });
+    footprintSource?.setData({
+      type: 'FeatureCollection',
+      features: eligibleBuildings.map((building) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Polygon' as const, coordinates: [building.ring] } })),
+    });
+    treeSource?.setData({
+      type: 'FeatureCollection',
+      features: showShadows && environment ? environment.trees.filter((_, index) => index % 3 === 0).map((tree) => ({
+        type: 'Feature' as const,
+        properties: { radius: Math.max(4, Math.min(28, tree.crown_radius_m * 1.4)) },
+        geometry: { type: 'Point' as const, coordinates: shadowCoordinate(tree.coordinate, tree.height_m, time) },
+      })) : [],
+    });
+
     markers.current.forEach((marker) => marker.remove());
     markers.current = [
       new mapboxgl.Marker({ color: '#f4ad50' }).setLngLat([...origin.coordinate]).addTo(instance),
       new mapboxgl.Marker({ color: '#0d6664' }).setLngLat([...destination.coordinate]).addTo(instance),
     ];
-  }, [cooler, destination.coordinate, fastest, graph, origin.coordinate, scenario, selectedRoute, time]);
+  }, [cooler, destination.coordinate, environment, fastest, graph, origin.coordinate, scenario, selectedRoute, showShadows, time]);
 
   useEffect(() => {
     updateLayersRef.current = updateLayers;
@@ -94,6 +138,12 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
         source: 'exposure-points',
         paint: { 'circle-radius': 7, 'circle-color': ['get', 'color'], 'circle-opacity': 0.32, 'circle-blur': 0.18 },
       });
+      instance.addSource('building-shadows', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      instance.addLayer({ id: 'building-shadows-layer', type: 'fill', source: 'building-shadows', paint: { 'fill-color': '#263d5a', 'fill-opacity': 0.16 } });
+      instance.addSource('tree-shadows', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      instance.addLayer({ id: 'tree-shadows-layer', type: 'circle', source: 'tree-shadows', paint: { 'circle-color': '#426b58', 'circle-opacity': 0.16, 'circle-radius': ['get', 'radius'], 'circle-blur': 0.28 } });
+      instance.addSource('building-footprints', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      instance.addLayer({ id: 'building-footprints-layer', type: 'line', source: 'building-footprints', paint: { 'line-color': '#263d5a', 'line-opacity': 0.38, 'line-width': 1 } });
       instance.addSource('route-lines', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       instance.addLayer({
         id: 'route-lines-layer',

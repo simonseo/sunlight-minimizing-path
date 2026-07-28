@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { LocationSearch } from './components/LocationSearch';
 import { RouteMap } from './components/RouteMap';
 import { studyGraph, weatherScenarios } from './data/studyGraph';
+import { loadEnvironmentalFeatures } from './data/environment';
+import type { EnvironmentalFeatures } from './data/environment';
 import type { Place, WeatherScenarioId } from './data/types';
 import { isInStudyArea, nearestNode } from './lib/geo';
 import { loadRealGraph } from './lib/graphLoader';
@@ -22,6 +24,8 @@ export default function App() {
   const [selectedRoute, setSelectedRoute] = useState<'fastest' | 'cooler'>('cooler');
   const [graph, setGraph] = useState(studyGraph);
   const [graphSource, setGraphSource] = useState<'study' | 'public'>('study');
+  const [showShadows, setShowShadows] = useState(false);
+  const [environment, setEnvironment] = useState<EnvironmentalFeatures | null>(null);
   const scenario = weatherScenarios.find((item) => item.id === scenarioId) ?? weatherScenarios[0];
 
   useEffect(() => {
@@ -32,6 +36,10 @@ export default function App() {
       }
     }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (showShadows && !environment) void loadEnvironmentalFeatures().then(setEnvironment).catch(() => undefined);
+  }, [environment, showShadows]);
 
   const routeState = useMemo(() => {
     if (!isInStudyArea(origin.coordinate) || !isInStudyArea(destination.coordinate)) return { result: null, message: 'Choose two places inside the Santa Monica research area.' };
@@ -60,6 +68,8 @@ export default function App() {
           destination={destination}
           time={time}
           scenario={scenario}
+          environment={environment}
+          showShadows={showShadows}
         />
         <div className="map-caption">Modeled direct-sun exposure · {graphSource === 'public' ? 'public-source graph' : '15-minute study mesh'}</div>
       </section>
@@ -89,6 +99,7 @@ export default function App() {
           </label>
         </div>
         <p className="scenario-description">{scenario.description}</p>
+        <label className="shadow-toggle"><input type="checkbox" checked={showShadows} onChange={(event) => setShowShadows(event.target.checked)} /> Show modeled tree and building shadows</label>
 
         {routeState.message ? <div className="notice">{routeState.message}</div> : null}
         {fastest && cooler ? (

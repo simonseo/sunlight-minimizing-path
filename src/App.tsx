@@ -7,6 +7,8 @@ import type { EnvironmentalFeatures } from './data/environment';
 import type { Place, WeatherScenarioId } from './data/types';
 import { isInStudyArea, nearestNode } from './lib/geo';
 import { loadRealGraph } from './lib/graphLoader';
+import { loadLidarSurface } from './data/lidarSurface';
+import { raycastGraphOcclusion } from './lib/lidarRaycast';
 import { liveExposureConditions, loadLiveWeather, SANTA_MONICA_CENTER, SANTA_MONICA_TIMEZONE } from './lib/realtime';
 import { calculateRoutes } from './lib/routing';
 import { solarPosition } from './lib/sun';
@@ -43,6 +45,7 @@ export default function App() {
   const [graphSource, setGraphSource] = useState<'study' | 'public'>('study');
   const [showShadows, setShowShadows] = useState(false);
   const [environment, setEnvironment] = useState<EnvironmentalFeatures | null>(null);
+  const [lidarSurface, setLidarSurface] = useState<Awaited<ReturnType<typeof loadLidarSurface>> | null>(null);
   const [liveWeather, setLiveWeather] = useState<Awaited<ReturnType<typeof loadLiveWeather>> | null>(null);
   const [liveState, setLiveState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const scenario = weatherScenarios.find((item) => item.id === scenarioId) ?? weatherScenarios[0];
@@ -54,6 +57,10 @@ export default function App() {
         setGraphSource('public');
       }
     }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void loadLidarSurface().then(setLidarSurface).catch(() => undefined);
   }, []);
 
   const refreshLiveWeather = () => {
@@ -75,7 +82,8 @@ export default function App() {
   }, [environment, showShadows]);
 
   const sun = useMemo(() => solarPosition(liveWeather?.localDate ?? localDate(SANTA_MONICA_TIMEZONE), time, SANTA_MONICA_CENTER, SANTA_MONICA_TIMEZONE), [liveWeather?.localDate, time]);
-  const conditions = useMemo(() => liveExposureConditions(liveWeather, sun, scenario), [liveWeather, scenario, sun]);
+  const lidarOcclusion = useMemo(() => lidarSurface ? raycastGraphOcclusion(graph, lidarSurface, sun) : undefined, [graph, lidarSurface, sun]);
+  const conditions = useMemo(() => ({ ...liveExposureConditions(liveWeather, sun, scenario), lidarOcclusionByEdge: lidarOcclusion }), [lidarOcclusion, liveWeather, scenario, sun]);
 
   const routeState = useMemo(() => {
     if (!isInStudyArea(origin.coordinate) || !isInStudyArea(destination.coordinate)) return { result: null, message: 'Choose two places inside the Santa Monica research area.' };
@@ -115,7 +123,7 @@ export default function App() {
           <p className="eyebrow">Santa Monica research prototype</p>
           <h1>Walk cooler,<br />not merely shorter.</h1>
           <p className="intro">Compare a fastest walk with a route shaped by modeled sun, trees, buildings, and time of day.</p>
-          {graphSource === 'public' ? <p className="data-status">{graph.lidar ? 'Public OSM, Santa Monica tree, and LiDAR obstruction data loaded.' : 'Public OSM + Santa Monica tree inventory loaded. Building-shade rasters remain pending LiDAR processing.'}</p> : null}
+          {graphSource === 'public' ? <p className="data-status">{lidarSurface ? 'Public OSM, Santa Monica tree, and LiDAR 3D sun-ray casting data loaded.' : graph.lidar ? 'Public OSM, Santa Monica tree, and LiDAR surface data loading…' : 'Public OSM + Santa Monica tree inventory loaded. Building-shade rasters remain pending LiDAR processing.'}</p> : null}
         </header>
 
         <div className="search-grid">

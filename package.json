@@ -16,7 +16,8 @@
     "pipeline:ingest": "python3 pipeline/ingest_public_sources.py --download",
     "pipeline:lidar": "python3 pipeline/ingest_public_sources.py --run-lidar",
     "pipeline:lidar-features": "/opt/homebrew/bin/python3.14 pipeline/apply_lidar_features.py",
-    "pipeline:shadows": "/opt/homebrew/bin/python3.14 pipeline/build_shadow_features.py"
+    "pipeline:shadows": "/opt/homebrew/bin/python3.14 pipeline/build_shadow_features.py",
+    "pipeline:lidar-grid": "/opt/homebrew/bin/python3.14 pipeline/build_lidar_surface_grid.py"
   },
   "dependencies": {
     "mapbox-gl": "^3.12.0",

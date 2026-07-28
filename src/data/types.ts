@@ -47,6 +47,7 @@ export interface ExposureConditions {
   radiationMultiplier: number;
   heatMultiplier: number;
   solarElevationDegrees?: number;
+  lidarOcclusionByEdge?: ReadonlyMap<string, number>;
 }
 
 export interface SolarPosition {

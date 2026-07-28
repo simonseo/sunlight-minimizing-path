@@ -113,7 +113,10 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
     const buildingSource = instance.getSource('building-shadows') as mapboxgl.GeoJSONSource | undefined;
     const treeSource = instance.getSource('tree-shadows') as mapboxgl.GeoJSONSource | undefined;
     const footprintSource = instance.getSource('building-footprints') as mapboxgl.GeoJSONSource | undefined;
-    const eligibleBuildings = showShadows && environment ? environment.buildings.filter((building) => building.height_m >= 5).slice(0, 6000) : [];
+    // Once the DSM/DEM is available, the map uses its ray-cast ground-shadow
+    // raster instead of the older footprint/height illustration.
+    const showIllustratedShadows = showShadows && !lidarSurface;
+    const eligibleBuildings = showIllustratedShadows && environment ? environment.buildings.filter((building) => building.height_m >= 5).slice(0, 6000) : [];
     buildingSource?.setData({
       type: 'FeatureCollection',
       features: eligibleBuildings.map((building) => ({
@@ -128,7 +131,7 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
     });
     treeSource?.setData({
       type: 'FeatureCollection',
-      features: showShadows && environment ? environment.trees.filter((_, index) => index % 2 === 0).map((tree) => ({
+      features: showIllustratedShadows && environment ? environment.trees.filter((_, index) => index % 2 === 0).map((tree) => ({
         type: 'Feature' as const,
         properties: {},
         geometry: { type: 'Polygon' as const, coordinates: [canopyRing(shadowCoordinate(tree.coordinate, tree.height_m, sunPosition), tree.crown_radius_m)] },

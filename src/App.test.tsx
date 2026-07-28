@@ -40,8 +40,8 @@ describe('research prototype controls', () => {
     await screen.findByText(/22°C feels like/i);
     fireEvent.change(screen.getByLabelText('Departure time'), { target: { value: '09:00' } });
     expect(screen.getByLabelText('Departure time')).toHaveValue('09:00');
-    await user.click(screen.getByLabelText(/show modeled tree and building shadows/i));
-    expect(screen.getByLabelText(/show modeled tree and building shadows/i)).toBeChecked();
+    await user.click(screen.getByLabelText(/show lidar ray-cast building and canopy shadows/i));
+    expect(screen.getByLabelText(/show lidar ray-cast building and canopy shadows/i)).toBeChecked();
     await user.click(screen.getByRole('button', { name: /fastest/i }));
     expect(screen.getByRole('button', { name: /fastest/i })).toHaveClass('selected');
   });

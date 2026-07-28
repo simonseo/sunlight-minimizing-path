@@ -24,6 +24,8 @@ describe('research prototype controls', () => {
     render(<App />);
     await user.selectOptions(screen.getByLabelText('Weather scenario'), 'marine');
     expect(screen.getByText(/cloud-filtered direct sun/i)).toBeInTheDocument();
+    await user.click(screen.getByLabelText(/show modeled tree and building shadows/i));
+    expect(screen.getByLabelText(/show modeled tree and building shadows/i)).toBeChecked();
     await user.click(screen.getByRole('button', { name: /fastest/i }));
     expect(screen.getByRole('button', { name: /fastest/i })).toHaveClass('selected');
   });

@@ -113,6 +113,7 @@ export default function App() {
           time={time}
           conditions={conditions}
           sunPosition={sun}
+          lidarSurface={lidarSurface}
           environment={environment}
           showShadows={showShadows}
         />

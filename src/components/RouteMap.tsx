@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { EnvironmentalFeatures } from '../data/environment';
+import type { LidarSurfaceGrid } from '../data/lidarSurface';
 import type { Coordinate, ExposureConditions, Place, RouteResult, SolarPosition, StudyGraph } from '../data/types';
 import { edgeExposure } from '../lib/exposure';
+import { lidarShadowMask } from '../lib/lidarRaycast';
 
 interface RouteMapProps {
   graph: StudyGraph;
@@ -14,6 +16,7 @@ interface RouteMapProps {
   time: string;
   conditions: ExposureConditions;
   sunPosition: SolarPosition;
+  lidarSurface: LidarSurfaceGrid | null;
   environment: EnvironmentalFeatures | null;
   showShadows: boolean;
 }
@@ -52,6 +55,12 @@ function buildingShadowGeometry(ring: Coordinate[], heightMeters: number, sunPos
   };
 }
 
+function mercatorToCoordinate(x: number, y: number) {
+  const longitude = (x / 20_037_508.34) * 180;
+  const latitude = (360 / Math.PI) * Math.atan(Math.exp((y / 20_037_508.34) * Math.PI)) - 90;
+  return [longitude, latitude] as Coordinate;
+}
+
 function lineFeature(nodeIds: string[], graph: StudyGraph) {
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
   return {
@@ -64,12 +73,13 @@ function lineFeature(nodeIds: string[], graph: StudyGraph) {
   };
 }
 
-export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destination, time, conditions, sunPosition, environment, showShadows }: RouteMapProps) {
+export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destination, time, conditions, sunPosition, lidarSurface, environment, showShadows }: RouteMapProps) {
   const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
   const updateLayersRef = useRef<() => void>(() => {});
+  const shadowMaskKey = useRef('');
 
   const updateLayers = useCallback(() => {
     const instance = map.current;
@@ -125,12 +135,44 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
       })) : [],
     });
 
+    const maskLayerId = 'lidar-shadow-mask-layer';
+    if (showShadows && lidarSurface) {
+      const maskKey = `${sunPosition.azimuthDegrees.toFixed(2)}:${sunPosition.elevationDegrees.toFixed(2)}`;
+      if (maskKey !== shadowMaskKey.current) {
+        const mask = lidarShadowMask(lidarSurface, sunPosition);
+        const canvas = document.createElement('canvas');
+        canvas.width = mask.width;
+        canvas.height = mask.height;
+        const context = canvas.getContext('2d');
+        if (context) context.putImageData(new ImageData(mask.pixels, mask.width, mask.height), 0, 0);
+        const east = lidarSurface.origin[0] + lidarSurface.width * lidarSurface.resolutionMeters;
+        const south = lidarSurface.origin[1] - lidarSurface.height * lidarSurface.resolutionMeters;
+        const coordinates = [
+          mercatorToCoordinate(lidarSurface.origin[0], lidarSurface.origin[1]),
+          mercatorToCoordinate(east, lidarSurface.origin[1]),
+          mercatorToCoordinate(east, south),
+          mercatorToCoordinate(lidarSurface.origin[0], south),
+        ] as unknown as [[number, number], [number, number], [number, number], [number, number]];
+        const source = instance.getSource('lidar-shadow-mask') as mapboxgl.ImageSource | undefined;
+        if (source) source.updateImage({ url: canvas.toDataURL(), coordinates });
+        else {
+          instance.addSource('lidar-shadow-mask', { type: 'image', url: canvas.toDataURL(), coordinates });
+          instance.addLayer({ id: maskLayerId, type: 'raster', source: 'lidar-shadow-mask', paint: { 'raster-opacity': 0.72, 'raster-fade-duration': 0 } }, 'exposure-points-layer');
+        }
+        shadowMaskKey.current = maskKey;
+      }
+      instance.setLayoutProperty(maskLayerId, 'visibility', 'visible');
+    } else if (instance.getLayer(maskLayerId)) {
+      instance.setLayoutProperty(maskLayerId, 'visibility', 'none');
+      shadowMaskKey.current = '';
+    }
+
     markers.current.forEach((marker) => marker.remove());
     markers.current = [
       new mapboxgl.Marker({ color: '#f4ad50' }).setLngLat([...origin.coordinate]).addTo(instance),
       new mapboxgl.Marker({ color: '#0d6664' }).setLngLat([...destination.coordinate]).addTo(instance),
     ];
-  }, [conditions, cooler, destination.coordinate, environment, fastest, graph, origin.coordinate, selectedRoute, showShadows, sunPosition, time]);
+  }, [conditions, cooler, destination.coordinate, environment, fastest, graph, lidarSurface, origin.coordinate, selectedRoute, showShadows, sunPosition, time]);
 
   useEffect(() => {
     updateLayersRef.current = updateLayers;

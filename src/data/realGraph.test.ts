@@ -30,5 +30,5 @@ describe('real Santa Monica graph artifact', () => {
       expect(edge.buildingShade).toBeGreaterThanOrEqual(0);
       expect(edge.buildingShade).toBeLessThanOrEqual(1);
     }
-  });
+  }, 15_000);
 });

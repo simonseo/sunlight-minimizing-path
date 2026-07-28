@@ -156,7 +156,7 @@ export default function App() {
           </label> : <div className="sun-metrics"><span>Sun bearing</span><strong>{Math.round(sun.azimuthDegrees)}°</strong></div>}
         </div>
         <p className="scenario-description">{liveWeather ? `Live radiation and weather are applied to the route score; sun geometry uses ${liveWeather.localDate} in Santa Monica.` : scenario.description}</p>
-        <label className="shadow-toggle"><input type="checkbox" checked={showShadows} onChange={(event) => setShowShadows(event.target.checked)} /> Show modeled tree and building shadows</label>
+        <label className="shadow-toggle"><input type="checkbox" checked={showShadows} onChange={(event) => setShowShadows(event.target.checked)} /> Show LiDAR ray-cast building and canopy shadows</label>
 
         {routeState.message ? <div className="notice">{routeState.message}</div> : null}
         {fastest && cooler ? (

@@ -46,15 +46,9 @@ function canopyRing(center: Coordinate, radiusMeters: number) {
 function buildingShadowGeometry(ring: Coordinate[], heightMeters: number, sunPosition: SolarPosition) {
   const footprint = closedRing(ring);
   const projected = closedRing(footprint.map((coordinate) => shadowCoordinate(coordinate, heightMeters, sunPosition)));
-  const sweptEdges = footprint.slice(0, -1).map((coordinate, index) => {
-    const next = footprint[index + 1];
-    const projectedCoordinate = projected[index];
-    const projectedNext = projected[index + 1];
-    return [coordinate, next, projectedNext, projectedCoordinate, coordinate];
-  });
   return {
-    type: 'MultiPolygon' as const,
-    coordinates: [[projected], ...sweptEdges.map((edge) => [edge])],
+    type: 'Polygon' as const,
+    coordinates: [projected],
   };
 }
 
@@ -81,7 +75,7 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
     const instance = map.current;
     if (!instance || !instance.isStyleLoaded()) return;
     const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
-    const exposurePoints = graph.edges.filter((_, index) => index % 12 === 0).map((edge) => {
+    const exposurePoints = graph.edges.filter((_, index) => index % (showShadows ? 72 : 20) === 0).map((edge) => {
       const from = nodeById.get(edge.from)?.coordinate;
       const to = nodeById.get(edge.to)?.coordinate;
       const midpoint: Coordinate = from && to ? [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2] : [-118.49, 34.02];
@@ -109,7 +103,7 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
     const buildingSource = instance.getSource('building-shadows') as mapboxgl.GeoJSONSource | undefined;
     const treeSource = instance.getSource('tree-shadows') as mapboxgl.GeoJSONSource | undefined;
     const footprintSource = instance.getSource('building-footprints') as mapboxgl.GeoJSONSource | undefined;
-    const eligibleBuildings = showShadows && environment ? environment.buildings.filter((building) => building.height_m >= 5).slice(0, 12000) : [];
+    const eligibleBuildings = showShadows && environment ? environment.buildings.filter((building) => building.height_m >= 5).slice(0, 6000) : [];
     buildingSource?.setData({
       type: 'FeatureCollection',
       features: eligibleBuildings.map((building) => ({
@@ -161,14 +155,14 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
         id: 'exposure-points-layer',
         type: 'circle',
         source: 'exposure-points',
-        paint: { 'circle-radius': 7, 'circle-color': ['get', 'color'], 'circle-opacity': 0.32, 'circle-blur': 0.18 },
+        paint: { 'circle-radius': 4, 'circle-color': ['get', 'color'], 'circle-opacity': 0.2, 'circle-blur': 0.12 },
       });
       instance.addSource('building-shadows', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      instance.addLayer({ id: 'building-shadows-layer', type: 'fill', source: 'building-shadows', paint: { 'fill-color': '#263d5a', 'fill-opacity': 0.13 } });
+      instance.addLayer({ id: 'building-shadows-layer', type: 'fill', source: 'building-shadows', paint: { 'fill-color': '#263d5a', 'fill-opacity': 0.1 } });
       instance.addSource('tree-shadows', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       instance.addLayer({ id: 'tree-shadows-layer', type: 'fill', source: 'tree-shadows', paint: { 'fill-color': '#426b58', 'fill-opacity': 0.2 } });
       instance.addSource('building-footprints', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      instance.addLayer({ id: 'building-footprints-layer', type: 'line', source: 'building-footprints', paint: { 'line-color': '#263d5a', 'line-opacity': 0.38, 'line-width': 1 } });
+      instance.addLayer({ id: 'building-footprints-layer', type: 'line', source: 'building-footprints', paint: { 'line-color': '#263d5a', 'line-opacity': 0.26, 'line-width': 0.7 } });
       instance.addSource('route-lines', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       instance.addLayer({
         id: 'route-lines-layer',

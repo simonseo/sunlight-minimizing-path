@@ -8,7 +8,7 @@
 | Public tree inventory | City of Santa Monica | Species, location, available crown attributes | At build time | GeoParquet |
 | Pedestrian network | OpenStreetMap | Paths, crossings, stairs, access tags | Build time | PBF + normalized GeoParquet |
 | Building footprints | OSM plus available municipal GIS | Building masks and QA | Build time | GeoParquet |
-| Weather scenarios | Open-Meteo snapshot | Temperature, humidity, wind, cloud, radiation | Per experiment date | JSON/Parquet |
+| Live weather and radiation | Open-Meteo forecast API | Current temperature, apparent temperature, humidity, wind, cloud, direct/diffuse/shortwave radiation, sunrise/sunset | Browser refresh every 10 min | Transient JSON |
 
 ## Acquisition procedure
 

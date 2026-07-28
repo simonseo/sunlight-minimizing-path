@@ -1,4 +1,4 @@
-import type { GraphEdge, RouteResult, StudyGraph, WeatherScenario } from '../data/types';
+import type { ExposureConditions, GraphEdge, RouteResult, StudyGraph } from '../data/types';
 import { edgeExposure, heatBurden } from './exposure';
 
 interface SearchResult {
@@ -102,10 +102,10 @@ function shortestPath(adjacency: Adjacency, startId: string, endId: string, weig
   return { nodeIds, edges, cost: costs.get(endId) ?? 0 };
 }
 
-function summarize(search: SearchResult, time: string, scenario: WeatherScenario): RouteResult {
+function summarize(search: SearchResult, time: string, conditions: ExposureConditions): RouteResult {
   const minutes = search.edges.reduce((sum, edge) => sum + edge.minutes, 0);
-  const sunBurden = search.edges.reduce((sum, edge) => sum + edge.minutes * edgeExposure(edge, time, scenario), 0);
-  const heat = search.edges.reduce((sum, edge) => sum + heatBurden(edge, time, scenario), 0);
+  const sunBurden = search.edges.reduce((sum, edge) => sum + edge.minutes * edgeExposure(edge, time, conditions), 0);
+  const heat = search.edges.reduce((sum, edge) => sum + heatBurden(edge, time, conditions), 0);
   const confidence = search.edges.reduce((sum, edge) => sum + edge.confidence, 0) / search.edges.length;
   return {
     ...search,
@@ -116,13 +116,13 @@ function summarize(search: SearchResult, time: string, scenario: WeatherScenario
   };
 }
 
-export function calculateRoutes(graph: StudyGraph, startId: string, endId: string, time: string, scenario: WeatherScenario) {
+export function calculateRoutes(graph: StudyGraph, startId: string, endId: string, time: string, conditions: ExposureConditions) {
   const adjacency = buildAdjacency(graph);
   const fastestSearch = shortestPath(adjacency, startId, endId, (edge) => edge.minutes);
   if (!fastestSearch) return null;
-  const fastest = summarize(fastestSearch, time, scenario);
-  const coolerSearch = shortestPath(adjacency, startId, endId, (edge) => edge.minutes + heatBurden(edge, time, scenario) * 3.8);
-  const coolerCandidate = coolerSearch ? summarize(coolerSearch, time, scenario) : fastest;
+  const fastest = summarize(fastestSearch, time, conditions);
+  const coolerSearch = shortestPath(adjacency, startId, endId, (edge) => edge.minutes + heatBurden(edge, time, conditions) * 3.8);
+  const coolerCandidate = coolerSearch ? summarize(coolerSearch, time, conditions) : fastest;
   const isMeaningfullyCooler = coolerCandidate.heatScore < fastest.heatScore - 2;
   const isWithinDetourCap = coolerCandidate.minutes <= fastest.minutes * 1.25;
   return {

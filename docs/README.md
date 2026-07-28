@@ -13,6 +13,6 @@ This directory is the planning source of truth for the research-only web prototy
 
 - Santa Monica only; no expansion until the offline evaluation is complete.
 - Browser-only prototype; no login, mobile app, or turn-by-turn navigation.
-- Use precomputed solar/shade data and cached weather scenarios.
+- Keep the geography/shade artifacts precomputed, but refresh local weather and measured radiation in the browser. Compute the selected time’s solar position from the current date, Santa Monica coordinate, and local timezone.
 - Present a modeled exposure score, never a medical perspiration estimate.
 - Keep credentials in the ignored local `.env` file; never place them in this directory.

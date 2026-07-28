@@ -19,7 +19,7 @@ src/
 
 ## State model
 
-Keep only transient client state: selected locations, departure time, weather scenario, selected route, and loading/error state. Do not add authentication or analytics at this stage.
+Keep only transient client state: selected locations, today’s departure time, live weather/radiation, selected route, and loading/error state. The browser refreshes Open-Meteo conditions every 10 minutes and offers a manual refresh; a selectable research scenario remains only as an offline fallback. Do not add authentication or analytics at this stage.
 
 ## Map layers
 

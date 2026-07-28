@@ -43,6 +43,33 @@ export interface WeatherScenario {
   heatMultiplier: number;
 }
 
+export interface ExposureConditions {
+  radiationMultiplier: number;
+  heatMultiplier: number;
+  solarElevationDegrees?: number;
+}
+
+export interface SolarPosition {
+  azimuthDegrees: number;
+  elevationDegrees: number;
+}
+
+export interface LiveWeather {
+  observedAt: string;
+  localDate: string;
+  timezone: string;
+  temperatureC: number;
+  apparentTemperatureC: number;
+  relativeHumidity: number;
+  cloudCover: number;
+  windSpeedKph: number;
+  directRadiationWm2: number;
+  diffuseRadiationWm2: number;
+  shortwaveRadiationWm2: number;
+  sunrise: string;
+  sunset: string;
+}
+
 export interface RouteResult {
   nodeIds: string[];
   edges: GraphEdge[];

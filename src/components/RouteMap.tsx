@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { EnvironmentalFeatures } from '../data/environment';
-import type { Coordinate, Place, RouteResult, StudyGraph, WeatherScenario } from '../data/types';
+import type { Coordinate, ExposureConditions, Place, RouteResult, SolarPosition, StudyGraph } from '../data/types';
 import { edgeExposure } from '../lib/exposure';
 
 interface RouteMapProps {
@@ -12,23 +12,15 @@ interface RouteMapProps {
   origin: Place;
   destination: Place;
   time: string;
-  scenario: WeatherScenario;
+  conditions: ExposureConditions;
+  sunPosition: SolarPosition;
   environment: EnvironmentalFeatures | null;
   showShadows: boolean;
 }
 
-function solarAltitude(time: string) {
-  const [hours, minutes] = time.split(':').map(Number);
-  const dayMinute = hours * 60 + minutes;
-  const intensity = Math.max(0.12, Math.sin(((dayMinute - 420) / 750) * Math.PI));
-  return 8 + intensity * 62;
-}
-
-function shadowCoordinate(coordinate: Coordinate, heightMeters: number, time: string) {
-  const [hours, minutes] = time.split(':').map(Number);
-  const progress = Math.min(1, Math.max(0, (hours * 60 + minutes - 420) / 750));
-  const azimuth = 90 + progress * 180 + 180;
-  const distance = Math.min(130, heightMeters / Math.tan((solarAltitude(time) * Math.PI) / 180));
+function shadowCoordinate(coordinate: Coordinate, heightMeters: number, sunPosition: SolarPosition) {
+  const azimuth = sunPosition.azimuthDegrees + 180;
+  const distance = sunPosition.elevationDegrees <= 0 ? 0 : Math.min(130, heightMeters / Math.tan((sunPosition.elevationDegrees * Math.PI) / 180));
   const radians = (azimuth * Math.PI) / 180;
   return [coordinate[0] + (Math.sin(radians) * distance) / 92000, coordinate[1] + (Math.cos(radians) * distance) / 111000] as Coordinate;
 }
@@ -45,7 +37,7 @@ function lineFeature(nodeIds: string[], graph: StudyGraph) {
   };
 }
 
-export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destination, time, scenario, environment, showShadows }: RouteMapProps) {
+export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destination, time, conditions, sunPosition, environment, showShadows }: RouteMapProps) {
   const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -60,7 +52,7 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
       const from = nodeById.get(edge.from)?.coordinate;
       const to = nodeById.get(edge.to)?.coordinate;
       const midpoint: Coordinate = from && to ? [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2] : [-118.49, 34.02];
-      const exposure = edgeExposure(edge, time, scenario);
+      const exposure = edgeExposure(edge, time, conditions);
       return {
         type: 'Feature' as const,
         properties: { color: exposure > 0.65 ? '#f1a847' : exposure > 0.35 ? '#d9cf86' : '#3e9a94' },
@@ -90,7 +82,7 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
       features: eligibleBuildings.map((building) => ({
         type: 'Feature' as const,
         properties: {},
-        geometry: { type: 'Polygon' as const, coordinates: [building.ring.map((coordinate) => shadowCoordinate(coordinate, building.height_m, time))] },
+        geometry: { type: 'Polygon' as const, coordinates: [building.ring.map((coordinate) => shadowCoordinate(coordinate, building.height_m, sunPosition))] },
       })),
     });
     footprintSource?.setData({
@@ -102,7 +94,7 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
       features: showShadows && environment ? environment.trees.filter((_, index) => index % 3 === 0).map((tree) => ({
         type: 'Feature' as const,
         properties: { radius: Math.max(4, Math.min(28, tree.crown_radius_m * 1.4)) },
-        geometry: { type: 'Point' as const, coordinates: shadowCoordinate(tree.coordinate, tree.height_m, time) },
+        geometry: { type: 'Point' as const, coordinates: shadowCoordinate(tree.coordinate, tree.height_m, sunPosition) },
       })) : [],
     });
 
@@ -111,7 +103,7 @@ export function RouteMap({ graph, fastest, cooler, selectedRoute, origin, destin
       new mapboxgl.Marker({ color: '#f4ad50' }).setLngLat([...origin.coordinate]).addTo(instance),
       new mapboxgl.Marker({ color: '#0d6664' }).setLngLat([...destination.coordinate]).addTo(instance),
     ];
-  }, [cooler, destination.coordinate, environment, fastest, graph, origin.coordinate, scenario, selectedRoute, showShadows, time]);
+  }, [conditions, cooler, destination.coordinate, environment, fastest, graph, origin.coordinate, selectedRoute, showShadows, sunPosition, time]);
 
   useEffect(() => {
     updateLayersRef.current = updateLayers;
